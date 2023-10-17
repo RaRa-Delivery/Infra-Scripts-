@@ -1,0 +1,49 @@
+def SHORT_COMMIT
+pipeline  {
+ environment  {
+   registry =  'zcrara.azurecr.io/rara-ms-admin-panel-ui'
+   registryCredential  =  '574284ba-5261-4ea8-9bad-2b351de399f3'
+   dockerImage  = ' ' 
+   shortCommit  = ' '
+   deployment  =  'zp-rara-saas-ms-admin-panel-ui-frontend'
+   namespace  = 'zp-rara-frontend'
+   containerName = "zp-rara-saas-ms-admin-panel-ui-app"
+}
+agent { label 'k8' }
+stages {
+      stage ('Cloning Git') {
+         steps  {
+               cleanWs()
+              checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[credentialsId: 'd00d68ca-79b6-46cd-840f-52a7e0cb9238', url: 'https://github.com/RaRa-Delivery/rara-saas-ms-admin-panel-ui.git']])
+         }
+      }
+  stage ('copy Config') {
+    steps {
+      sh 'cp /config/bms-ms/env.json src/conf'
+    }
+      }
+      
+      stage('Building image' ) {
+        steps{
+          script{
+            dockerImage = docker.build("$registry:prod-$BUILD_ID", "-f prod.Dockerfile .")
+          }
+         }
+       }
+       stage('Pushing image') {
+           steps{
+               script{
+                   docker.withRegistry("https://${registry}",  registryCredential) {
+                        dockerImage.push()
+                   }
+               }   
+           }          
+        }
+        stage ('Deploy Image') {
+          agent { label  'k8' }
+          steps {
+            sh  'kubectl set image deployment/$deployment $containerName=$registry:prod-$BUILD_ID -n $namespace'
+          }
+       }
+    }      
+}
