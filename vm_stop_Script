@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Replace these variables with your specific information
+SUBSCRIPTION_ID="1b024d7b-0fc2-4471-9ca3-d7eb44770585"
+TAG_NAME="shutdown"
+TAG_VALUE="yes"
+
+# Set the subscription (Optional, if you have multiple subscriptions)
+az account set --subscription $SUBSCRIPTION_ID
+
+# Find and stop VMs that have the specified tag
+vm_ids=$(az vm list \
+  --query "[?tags.$TAG_NAME=='$TAG_VALUE'].id" \
+  --output tsv)
+
+for id in $vm_ids; do
+  az vm deallocate --ids $id
+done
+
