@@ -1,2 +1,54 @@
-# Infra-Scripts-
-script used to automate and manage various aspects 
+#!/bin/sh
+
+NOW=$(date +"%y-%m-%d-%H-%M-%S")
+BKP_DATE=`date '+%d-%m-%Y'`
+CONFFILE="/etc/mysql/mysql.conf.d/mysqld.cnf"
+BKUSER="usr_rara_backup"
+BKUSERPASS="Rara_b4ckup_@321"
+#PORT="3307"
+MYSQLDUMP="mysqldump"
+logpath="/opt/db_backup/logs/dailybackup_log.log"
+BKP_PATH="/opt/db_backup"
+
+
+
+
+DB1="prod_cms"
+
+echo " ">> $logpath
+echo "***************Log Start*******************">> $logpath
+echo "Mysqldump  Started:`date '+%d-%m-%Y %H:%M:%S'`" >>  $logpath
+
+###- GRANT SELECT,LOCK TABLES,SHOW VIEW,PROCESS ON *.* TO usr_backup@localhost IDENTIFIED BY 'b4ckup_@321';FLUSH PRIVILEGES;
+
+####-Create data-dir for Today's Backup
+mkdir /opt/db_backup/"$(date +"%y-%m-%d")"
+
+
+###-LETS DUMP DB
+
+###-FOR CURRENT LIVE DB "prod_cms"
+$MYSQLDUMP   --single-transaction --opt  -u$BKUSER -p"$BKUSERPASS"  $DB1 | gzip > /opt/db_backup/"$(date +"%y-%m-%d")"/db_dump_bkp_$DB1"__"$NOW.sql.gz
+
+
+
+###-tar the today's backup.
+cd /opt/db_backup
+
+tar -cf "$(date +"%y-%m-%d")"_"$DB1".tar "$(date +"%y-%m-%d")"
+
+####-Remove untar backup
+#rm -rf "$(date +"%y-%m-%d")"
+
+####-Rename Backup Name
+#mv "$(date +"%y-%m-%d")".tar "$(date +"%y-%m-%d")""".tar
+
+#aws s3 cp /mnt/backup/db_dump_bkp_$DB1_LIVE"__"$NOW.sql.gz  s3://mysql-backup-rara
+aws s3 cp /opt/db_backup/"$(date +"%y-%m-%d")"_"$DB1".tar  s3://rara-backup/prod_cms/ >> $logpath
+####-We're keeping only 3 days backup in local , Remove files older then 3 days
+#ls -t | tail -n +4 | xargs rm --
+
+echo "mysqldump backup Completed Successfully!!!!Cheers :`date '+%d-%m-%Y %H:%M:%S'`" >>  $logpath
+echo "***************Log End*******************">> $logpath
+
+######### Backup Placed by Techme24x7  #######################
