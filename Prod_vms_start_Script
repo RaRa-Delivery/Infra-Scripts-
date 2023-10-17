@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Replace these variables with your specific information
+SUBSCRIPTION_ID="1b024d7b-0fc2-4471-9ca3-d7eb44770585"
+RESOURCE_GROUP="RARA_PROD_NETWORK"
+VM_NAMES=("Prod-Jenkins" "ProdVpn")  # Add the names of your VMs to this array
+
+# Set the subscription (Optional, if you have multiple subscriptions)
+az account set --subscription $SUBSCRIPTION_ID
+
+# Loop through the VM names and start each VM
+for VM_NAME in "${VM_NAMES[@]}"
+do
+  echo "Starting VM: $VM_NAME"
+  az vm start \
+    --resource-group $RESOURCE_GROUP \
+    --name $VM_NAME
+done
+
