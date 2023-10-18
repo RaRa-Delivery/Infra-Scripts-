@@ -1,0 +1,145 @@
+---
+# https://kubernetes.io/docs/concepts/services-networking/service/
+kind: Service
+apiVersion: v1
+metadata:
+  name: zp-rara-ms-integration
+  namespace: zp-rara-integration
+  labels:
+    app: zp-rara-ms-integration
+    environment: production
+    version: abc39114
+spec:
+  selector:
+    app.kubernetes.io/name: zp-rara-ms-integration-backend
+  ports:
+    - protocol: TCP
+      name: http
+      port: 80
+      targetPort: 8086
+  type: NodePort
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: zp-rara-ms-integrations-ingress
+  namespace: zp-rara-integration
+  labels:
+    app: zp-rara-ms-integration
+    environment: production
+    version: abc39114
+  annotations:
+    kubernetes.io/ingress.class: azure/application-gateway
+    appgw.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  tls:
+    - secretName: raradelivery-secret
+  rules:
+    - host: integrations.rara.delivery
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: zp-rara-ms-integration
+                port:
+                  number: 80
+
+---
+# https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: zp-rara-ms-integration-backend
+  namespace: zp-rara-integration
+  labels:
+    app.kubernetes.io/name: zp-rara-ms-integration-backend
+    app.kubernetes.io/part-of: allen-rara-ms-integration-app
+    app: zp-rara-ms-integration
+    environment: production
+    version: abc39114
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zp-rara-ms-integration-backend
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 0%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zp-rara-ms-integration-backend
+        app.kubernetes.io/part-of: allen-rara-ms-integration-app
+        app: zp-rara-ms-integration
+        environment: production
+        version: abc39114
+      annotations:
+        instrumentation.opentelemetry.io/inject-java: zp-devops-tools/zp-devops-signoz
+    spec:
+      containers:
+        - name: zp-rara-ms-integration-app
+          image: zcrara.azurecr.io/rara-ms-integration:prod-29
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_ENV
+              value: production
+          ports:
+            - containerPort: 8086
+              name: http
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1500Mi
+            requests:
+              cpu: 500m
+              memory: 1000Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8086
+            initialDelaySeconds: 180
+            timeoutSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8086
+            initialDelaySeconds: 180
+            timeoutSeconds: 30
+      nodeSelector:
+        kubernetes.azure.com/scalesetpriority: spot
+      tolerations:
+      - effect: NoSchedule
+        key: kubernetes.azure.com/scalesetpriority
+        operator: Equal
+        value: spot
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: zp-rara-ms-integration-backend
+  namespace: zp-rara-integration
+spec:
+  maxReplicas: 4
+  metrics:
+  - resource:
+      name: memory
+      target:
+        averageUtilization: 85
+        type: Utilization
+    type: Resource
+  - resource:
+      name: cpu
+      target:
+        averageUtilization: 70
+        type: Utilization
+    type: Resource
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: zp-rara-ms-integration-backend
+
