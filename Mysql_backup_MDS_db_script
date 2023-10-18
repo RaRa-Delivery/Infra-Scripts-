@@ -21,9 +21,11 @@ echo "Mysqldump  Started:`date '+%d-%m-%Y %H:%M:%S'`" >>  $logpath
 
 ###- GRANT SELECT,LOCK TABLES,SHOW VIEW,PROCESS ON *.* TO usr_backup@localhost IDENTIFIED BY 'b4ckup_@321';FLUSH PRIVILEGES;
 
-####-Create data-dir for Today's Backup
-mkdir /opt/db_backup/"$(date +"%y-%m-%d")"
-
+####-Create data-dir for Today's Backup Check if the backup directory exists, and if not, create it
+backup_dir="/opt/db_backup/$(date +'%y-%m-%d')"
+if [ ! -d "$backup_dir" ]; then
+    mkdir -p "$backup_dir"
+fi
 
 ###-LETS DUMP DB
 
@@ -52,4 +54,3 @@ echo "mysqldump backup Completed Successfully!!!!Cheers :`date '+%d-%m-%Y %H:%M:
 echo "***************Log End*******************">> $logpath
 
 ######### Backup Placed by Techme24x7  #######################
-
