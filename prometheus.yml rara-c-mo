@@ -1,0 +1,188 @@
+root@rara-c-monitoring:/opt/config/prometheus# cat prometheus.yml 
+# prometheus global config
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  # scrape_timeout is set to the global default (10s).
+
+  external_labels:
+    monitor: rara
+    environment: All
+    service: Prometheus
+    region: AP
+    dc: ap-southeast-1
+
+alerting:
+  alertmanagers:
+  - scheme: http
+  - static_configs:
+    - targets:
+      - "alertmanager:9093"
+
+rule_files:
+  - "prometheus.rules.yml"
+
+scrape_configs:
+  # metrics_path defaults to '/metrics'
+  # scheme defaults to 'http'.
+  - job_name: prometheus
+
+    scrape_interval: 5s
+    scrape_timeout: 2s
+    honor_labels: true
+
+    static_configs:
+      - targets: ['prometheus:9090']
+
+  - job_name: this-node
+
+    scrape_interval: 5s
+    scrape_timeout: 2s
+    honor_labels: true
+
+    static_configs:
+      - targets: ['node:9100']
+
+  - job_name: cadvisor
+
+    scrape_interval: 5s
+    scrape_timeout: 2s
+    honor_labels: true
+
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+        #  - job_name: rabbitmq-exporter
+        #    scrape_interval: 60s
+        #    scrape_timeout: 59s
+        #    static_configs:
+        #      - targets: ['rara-p-rmq:15692']
+
+  - job_name: rara-p-website-node
+
+    scrape_interval: 5s
+    scrape_timeout: 2s
+    honor_labels: true
+
+    static_configs:
+      - targets: ['rara-p-website:9100']
+
+  - job_name: rara-p-website-cadvisor
+
+    scrape_interval: 5s
+    scrape_timeout: 2s
+    honor_labels: true
+
+    static_configs:
+      - targets: ['rara-p-website:8080']
+
+  - job_name: rara-p-driver-app-cadvisor
+    scrape_interval: 5s
+    scrape_timeout: 2s
+    honor_labels: true
+    static_configs:
+      - targets: ['172.31.17.98:8999']
+
+
+  - job_name: rara-p-hub-db-mysql
+
+    scrape_interval: 5s
+    scrape_timeout: 2s
+    honor_labels: true
+
+    static_configs:
+      - targets: ['mysql-hub:9104']
+
+  - job_name: rara-p-mp-db-mysql
+
+    scrape_interval: 5s
+    scrape_timeout: 2s
+    honor_labels: true
+
+    static_configs:
+      - targets: ['mysql-mp:9104']
+
+  - job_name: rara-p-sura-db-mysql
+
+    scrape_interval: 5s
+    scrape_timeout: 2s
+    honor_labels: true
+
+    static_configs:
+      - targets: ['mysql-sura:9104']
+
+  - job_name: ec2-nodes
+
+    scrape_interval: 5s
+    scrape_timeout: 2s
+    honor_labels: true
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Name]
+        target_label: instance
+      - source_labels: [__meta_ec2_public_ip]
+        target_label: ip
+      - source_labels: [__meta_ec2_private_ip]
+        target_label: private_ip
+
+    ec2_sd_configs:
+      - region: ap-southeast-1
+        access_key: AKIASVGO5B6AWP7YZFFK
+        secret_key: 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
+        port: 9100
+        filters:
+          - name: tag:Monitor_node
+            values:
+              - Yes
+
+
+  - job_name: 'dlc-apm'
+    metrics_path: '/dlc/v1/actuator/prometheus' # Job to scrape application metrics
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['172.31.17.98:9000']
+
+  - job_name: container_monitoring
+
+    scrape_interval: 5s
+    scrape_timeout: 2s
+    honor_labels: true
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Name]
+        target_label: instance
+      - source_labels: [__meta_ec2_public_ip]
+        target_label: ip
+    ec2_sd_configs:
+      - region: ap-southeast-1
+        access_key: AKIASVGO5B6AWP7YZFFK
+        secret_key: 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
+        port: 8999
+        filters:
+          - name: tag:cadvisor
+            values:
+              - cad_install
+
+
+  - job_name: 'blackbox'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: [ 'https://www.raranow.id', 'https://app.rara.delivery', 'https://driver-performance.rara.delivery', 'https://tracker.rara.delivery', 'https://newmp.rara.delivery', 'https://drivermgt.rara.delivery', 'https://integrations.rara.delivery', 'https://integrations.rara.delivery/lazada/', 'https://api.rara.delivery/iam/', 'https://3pl.rara.delivery/dm/v1/', 'https://3pl.rara.delivery/dlc/v1/', 'https://reports.rara.delivery', 'https://payment.rara.delivery', 'https://payment.rara.delivery/payment-api/', 'https://ym.rara.delivery', 'https://oms.rara.delivery', 'https://bandung-marketplace.rara.delivery', 'https://bandung-marketplace-driver.rara.delivery', 'https://surabaya-marketplace.rara.delivery', 'https://surabaya-marketplace-driver.rara.delivery', 'https://jakarta-marketplace.rara.delivery', 'https://jakarta-marketplace-driver.rara.delivery', 'https://bandung-hub.rara.delivery', 'https://bandung-hub-driver.rara.delivery', 'https://surabaya-hub.rara.delivery', 'https://surabaya-hub-driver.rara.delivery', 'https://jakarta-hub.rara.delivery', 'https://jakarta-hub-driver.rara.delivery', 'https://jakarta-marketplace-reports.rara.delivery' ]
+        labels:
+           group: 'website'
+           Environment: 'Production'
+           service: '1'
+      - targets: [ 'http://www.google.ca', 'https://prometheus.io' ]
+        labels:
+           group: 'other'
+           service: '1'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - source_labels: [__param_target]
+        target_label: target
+      - target_label: __address__
+        replacement: 172.31.12.62:9115
+

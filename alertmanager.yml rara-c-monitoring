@@ -1,0 +1,261 @@
+root@rara-c-monitoring:/opt/config/prometheus# cat alertmanager.yml 
+global:
+  resolve_timeout: 1m
+  slack_api_url: 'https://hooks.slack.com/services/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'
+
+route:
+ receiver: "default"
+ routes:
+  - match:
+     severity: warning 
+    group_by: [alertname, cluster, job, service]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 30m
+    continue: true
+    receiver: 'slack-notifications'
+  - match:
+     severity: critical
+     Environment: Production     
+    group_by: [alertname, cluster, job, service]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 30m
+    continue: true
+    receiver: 'slack-critical'
+
+
+  - match:
+     severity: critical
+     Environment: Production
+    group_by: [alertname, cluster, job, service]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 30m
+    continue: true
+    receiver: 'pagerduty'
+
+  - receiver: pagerduty
+    match_re:
+      alert: "(mysql)"
+    group_wait: 10s
+    repeat_interval: 30m
+    group_by: [alertname, cluster, job, service]
+    continue: true
+
+
+  - match:
+     severity: warning|high|critical
+     server: marketplace-jk
+    group_by: [alertname, cluster, job, service]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 30m
+    continue: true
+    receiver: 'slack-critical'
+
+  - receiver: slack-container
+    match_re:
+      alert: "(container)"
+    group_wait: 10s
+    repeat_interval: 30m
+    group_by: [alertname, cluster, job, service]
+    continue: true
+
+  - receiver: slack-mysql
+    match_re:
+      alert: "(mysql)"
+    group_wait: 10s
+    repeat_interval: 30m
+    group_by: [alertname, cluster, job, service]
+    continue: true
+
+  - receiver: slack-uptime
+    match_re:
+      job: "(blackbox)"
+    group_wait: 10s
+    repeat_interval: 30m
+    group_by: [alertname, cluster, job, service]
+    continue: true
+
+
+receivers:
+- name: 'default'
+  email_configs:
+     - to: 'to@youremail.com'
+       from: 'default-alerts@yourdomain.com'
+       smarthost: 'smtp.host.com:2525'
+       auth_username: "smtpusername"
+       auth_password: "smtppassword"
+       html: '{{ template "email" .}}'
+- name: 'slack-notifications'
+  slack_configs:
+  - channel: '#system-alerts'
+    send_resolved: true
+    icon_url: https://avatars3.githubusercontent.com/u/3380462
+    title: |-
+      [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }} for {{ .CommonLabels.job }}
+      {{- if gt (len .CommonLabels) (len .GroupLabels) -}}
+        {{" "}}(
+        {{- with .CommonLabels.Remove .GroupLabels.Names }}
+          {{- range $index, $label := .SortedPairs -}}
+            {{ if $index }}, {{ end }}
+            {{- $label.Name }}="{{ $label.Value -}}"
+          {{- end }}
+        {{- end -}}
+        )
+      {{- end }}
+    text: >-
+     {{ range .Alerts -}}
+     *Alert:* {{ .Annotations.title }}{{ if .Labels.severity }} - `{{ .Labels.severity }}`{{ end }}
+
+     *Description:* {{ .Annotations.description }}
+
+     *Details:*
+       {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+       {{ end }}
+     {{ end }}
+
+
+
+- name: slack-container
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/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'
+    channel: 'rara-containers-alerts'
+    icon_url: https://avatars3.githubusercontent.com/u/3380462
+    send_resolved: true
+    title: |-
+      [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }} for {{ .CommonLabels.job }}
+      {{- if gt (len .CommonLabels) (len .GroupLabels) -}}
+        {{" "}}(
+        {{- with .CommonLabels.Remove .GroupLabels.Names }}
+          {{- range $index, $label := .SortedPairs -}}
+            {{ if $index }}, {{ end }}
+            {{- $label.Name }}="{{ $label.Value -}}"
+          {{- end }}
+        {{- end -}}
+        )
+      {{- end }}
+    text: >-
+      {{ with index .Alerts 0 -}}
+        :chart_with_upwards_trend: *<{{ .GeneratorURL }}|Graph>*
+        {{- if .Annotations.runbook }}   :notebook: *<{{ .Annotations.runbook }}|Runbook>*{{ end }}
+      {{ end }}
+
+      *Alert details*:
+
+      {{ range .Alerts -}}
+        *Alert:* {{ .Annotations.title }}{{ if .Labels.severity }} - `{{ .Labels.severity }}`{{ end }}
+      *Description:* {{ .Annotations.description }}
+      *Details:*
+        {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+        {{ end }}
+      {{ end }}
+
+
+- name: slack-mysql
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/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'
+    channel: 'rara-mysql-alerts'
+    icon_url: https://avatars3.githubusercontent.com/u/3380462
+    send_resolved: true
+    title: |-
+      [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }} for {{ .CommonLabels.job }}
+      {{- if gt (len .CommonLabels) (len .GroupLabels) -}}
+        {{" "}}(
+        {{- with .CommonLabels.Remove .GroupLabels.Names }}
+          {{- range $index, $label := .SortedPairs -}}
+            {{ if $index }}, {{ end }}
+            {{- $label.Name }}="{{ $label.Value -}}"
+          {{- end }}
+        {{- end -}}
+        )
+      {{- end }}
+    text: >-
+      {{ with index .Alerts 0 -}}
+        :chart_with_upwards_trend: *<{{ .GeneratorURL }}|Graph>*
+        {{- if .Annotations.runbook }}   :notebook: *<{{ .Annotations.runbook }}|Runbook>*{{ end }}
+      {{ end }}
+
+      *Alert details*:
+
+      {{ range .Alerts -}}
+        *Alert:* {{ .Annotations.title }}{{ if .Labels.severity }} - `{{ .Labels.severity }}`{{ end }}
+      *Description:* {{ .Annotations.description }}
+      *Details:*
+        {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+        {{ end }}
+      {{ end }}
+
+
+- name: slack-uptime
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/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'
+    channel: 'rara-api-uptime-alerts'
+    icon_url: https://avatars3.githubusercontent.com/u/3380462
+    send_resolved: true
+    title: |-
+      [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }} for {{ .CommonLabels.job }}
+      {{- if gt (len .CommonLabels) (len .GroupLabels) -}}
+        {{" "}}(
+        {{- with .CommonLabels.Remove .GroupLabels.Names }}
+          {{- range $index, $label := .SortedPairs -}}
+            {{ if $index }}, {{ end }}
+            {{- $label.Name }}="{{ $label.Value -}}"
+          {{- end }}
+        {{- end -}}
+        )
+      {{- end }}
+    text: >-
+      {{ with index .Alerts 0 -}}
+        :chart_with_upwards_trend: *<{{ .GeneratorURL }}|Graph>*
+        {{- if .Annotations.runbook }}   :notebook: *<{{ .Annotations.runbook }}|Runbook>*{{ end }}
+      {{ end }}
+
+      *Alert details*:
+
+      {{ range .Alerts -}}
+        *Alert:* {{ .Annotations.title }}{{ if .Labels.severity }} - `{{ .Labels.severity }}`{{ end }}
+      *Description:* {{ .Annotations.description }}
+      *Details:*
+        {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+        {{ end }}
+      {{ end }}
+
+- name: slack-critical
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/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'
+    channel: 'rara-prod-sos'
+    icon_url: https://avatars3.githubusercontent.com/u/3380462
+    send_resolved: true
+    title: |-
+      [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }} for {{ .CommonLabels.job }}
+      {{- if gt (len .CommonLabels) (len .GroupLabels) -}}
+        {{" "}}(
+        {{- with .CommonLabels.Remove .GroupLabels.Names }}
+          {{- range $index, $label := .SortedPairs -}}
+            {{ if $index }}, {{ end }}
+            {{- $label.Name }}="{{ $label.Value -}}"
+          {{- end }}
+        {{- end -}}
+        )
+      {{- end }}
+    text: >-
+      {{ with index .Alerts 0 -}}
+        :chart_with_upwards_trend: *<{{ .GeneratorURL }}|Graph>*
+        {{- if .Annotations.runbook }}   :notebook: *<{{ .Annotations.runbook }}|Runbook>*{{ end }}
+      {{ end }}
+
+      *Alert details*:
+
+      {{ range .Alerts -}}
+        *Alert:* {{ .Annotations.title }}{{ if .Labels.severity }} - `{{ .Labels.severity }}`{{ end }}
+      *Description:* {{ .Annotations.description }}
+      *Details:*
+        {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+        {{ end }}
+      {{ end }}
+
+- name: pagerduty
+  pagerduty_configs:
+  - service_key: 66781c724cf94706c08ebe55f5a4dd9c
